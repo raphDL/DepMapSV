@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Large input data files (DepMap datasets)
+Omics*.csv
+CRISPRGeneEffect*.csv
+CRISPRGeneEffect*.csv
+gencode.*.gtf
+*.tsv
+
+# Intermediate/preprocessed data
+prep_out/*.bed
+prep_out/*.bedpe
+prep_out/*.csv
+depmap.genes*.txt
+all_genes_autosomes.txt
+gencode.id2name.tsv
+chunks/
+
+# Large output CSV files (keep structure, exclude data)
+out/
+out_*/
+out_pilot*/
+out_full*/
+out_v2/*/dependency_corrected.csv
+out_v2/*/model_coefficients.csv
+out_v2/*/gene_level_correlations.csv
+
+# Keep these key outputs:
+# - out_v2/comparison_report.txt
+# - out_v2/*/metrics.json
+# - figs_pilot/ (all files)
+# - figs_full/ (all files)
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary
+*.tmp
+*.bak

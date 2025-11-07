@@ -1,0 +1,30 @@
+{
+  "label": "shuffle_within_chrom",
+  "n_genes_fitted": 18435,
+  "cn_correlation": {
+    "n_genes": 18424,
+    "median_delta_abs_corr": 0.018236084401730673,
+    "mean_delta_abs_corr": 0.025404852739839136,
+    "frac_improved": 0.7496200607902735,
+    "percentile_25": -2.952973551695261e-05,
+    "percentile_75": 0.04226033887101949,
+    "median_ci_lower": 0.017700736060685035,
+    "median_ci_upper": 0.018792097843211047
+  },
+  "directional_prox_active": {
+    "n_genes": 18424,
+    "directional_prox_active_frac": 0.528712548849327,
+    "directional_ci_lower": 0.5214394268345636,
+    "directional_ci_upper": 0.5357699196699957,
+    "activity_contrib_threshold": 0.01,
+    "activity_cell_fraction": 0.1,
+    "median_active_frac": 0.29595278246205736,
+    "median_corr_drop": 0.018236084401730673
+  },
+  "proximity_effects": {
+    "median_abs_proximity_coef": 0.01423249449751457,
+    "frac_genes_with_proximity_effect": 0.06688364524003254,
+    "median_gene_activity_rate": 0.29595278246205736,
+    "mean_gene_activity_rate": 0.29792241172661427
+  }
+}

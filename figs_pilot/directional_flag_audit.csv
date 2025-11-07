@@ -1,0 +1,5 @@
+condition,directional_mean,n_genes,examples
+baseline_fixed,0.08,50,"['DCANP1', 'KCNQ1', 'KIAA1671', 'ZNF524']"
+rotate,0.08,50,"['DENND5A', 'IL17REL', 'KCNQ1', 'ZNF20']"
+uniform,0.26,50,"['CARM1', 'CRIM1', 'DCANP1', 'HLA-DPA1', 'KCNQ1', 'KCNQ5', 'PACS1', 'PCDHGC3', 'PRMT2', 'RIC8A']"
+linear250k2m,0.54,50,"['ACAT1', 'ATF5', 'FPR1', 'GFPT2', 'HLA-DPA1', 'IL17REL', 'INTS3', 'KCNA3', 'KCNQ5', 'KIAA1671']"

@@ -1,0 +1,89 @@
+================================================================================
+SV/CN BIAS CORRECTION PIPELINE - COMPARISON REPORT
+================================================================================
+
+Configuration:
+  Model: huber
+  Proximity windows: 250,000bp, 2,000,000bp
+  Activity threshold: 0.01 dependency units
+  Activity cell fraction: 10%
+  Bootstrap iterations: 2000
+
+
+TRUE
+--------------------------------------------------------------------------------
+Genes fitted: 18,435
+
+CN Correlation Change:
+  Median Δ|corr|: 0.0125 [0.0119, 0.0129]
+  Fraction improved: 69.6%
+
+Directional Proximity-Active Metric (GOLD STANDARD):
+  Fraction: 0.313 [0.307, 0.320]
+  (Active in ≥10% cells with |contrib|≥0.01 AND reduces |corr|)
+
+Proximity Effects:
+  Median |coef|: 0.0186
+  Genes with effect: 11.8%
+  Mean gene activity: 13.1%
+
+SHUFFLE WITHIN CHROM
+--------------------------------------------------------------------------------
+Genes fitted: 18,435
+
+CN Correlation Change:
+  Median Δ|corr|: 0.0182 [0.0177, 0.0188]
+  Fraction improved: 75.0%
+
+Directional Proximity-Active Metric (GOLD STANDARD):
+  Fraction: 0.529 [0.521, 0.536]
+  (Active in ≥10% cells with |contrib|≥0.01 AND reduces |corr|)
+
+Proximity Effects:
+  Median |coef|: 0.0142
+  Genes with effect: 6.7%
+  Mean gene activity: 29.8%
+
+SHUFFLE ACROSS CHROM
+--------------------------------------------------------------------------------
+Genes fitted: 18,435
+
+CN Correlation Change:
+  Median Δ|corr|: 0.0203 [0.0197, 0.0210]
+  Fraction improved: 76.1%
+
+Directional Proximity-Active Metric (GOLD STANDARD):
+  Fraction: 0.572 [0.564, 0.578]
+  (Active in ≥10% cells with |contrib|≥0.01 AND reduces |corr|)
+
+Proximity Effects:
+  Median |coef|: 0.0158
+  Genes with effect: 7.9%
+  Mean gene activity: 35.0%
+
+================================================================================
+EXCESS SIGNAL (True - Shuffled)
+================================================================================
+
+
+Within-Chrom Control:
+----------------------------------------
+  Directional prox-active excess: -0.215
+    True: 0.313
+    Shuffled: 0.529
+
+Cross-Chrom Control:
+----------------------------------------
+  Directional prox-active excess: -0.258
+    True: 0.313
+    Shuffled: 0.572
+
+================================================================================
+INTERPRETATION
+================================================================================
+
+The directional proximity-active metric indicates that 31.3% of genes exhibit
+positionally specific proximity effects that reduce CN–dependency coupling after correction.
+Relative to within-chromosome shuffles, the excess directional fraction is -21.5%, consistent with a breakpoint-driven artifact.
+
+Outputs written under: /Users/raphael/Documents/sandbox/DepMapSV/out_v2

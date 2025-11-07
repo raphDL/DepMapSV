@@ -1,0 +1,8 @@
+condition,directional_mean,ci_low,ci_high,n_genes
+baseline_fixed,0.06,0.0,0.14,50
+rotate,0.06,0.0,0.14,50
+uniform,0.14,0.06,0.24,50
+linear250k2m,0.54,0.4,0.68,50
+linear250k1p5m,0.54,0.4,0.68,50
+linear250k2m_rotate,0.6,0.46,0.74,50
+linear250k1p5m_rotate,0.6,0.46,0.74,50

@@ -1,11 +1,5 @@
 # SV/CN Proximity Correction
 
-## Decision
-
-**Stop**. Multiple falsification tests show no positive, positionally-specific signal attributable to true SV proximity; shuffled controls outperform the true data on the directional metric. Correction yields no measurable gain on essential/non-essential separation.
-
-## What we attempted
-
 - Per-gene robust regression (CN + proximity windows) on DepMap 25Q3.
 - Directional prox-active metric, pilot → full-dataset.
 - Two negative controls: within-chrom and cross-chrom shuffles.
@@ -23,29 +17,6 @@
 
 - Shuffling breaks structure yet increases the directional metric → our metric/model captures variance that is **easier** (more "artifact-like") in shuffled data than in real SV geography.
 - With DepMap-derived essential sets, baseline already perfectly separates labels (partly circular), so there's **no headroom** for improvement.
-
-## What's salvageable
-
-- Clean, documented pipeline pieces:
-  - Data validation + manifesting
-  - Feature builders (CN, SV proximity)
-  - Shuffling frameworks (within & cross-chrom)
-  - Pilot mode + design matrices
-  - Figure and audit scripts (directional flags, CIs)
-- These are reusable for other assays/questions (e.g., enhancer proximity, CNA-aware QC).
-
-## If revisited later (out of scope now)
-
-- Truly orthogonal validation (e.g., external screens or pathway/complex recovery not derived from DepMap).
-- Alternative causal designs (local randomization around "natural experiments" like focal events).
-- Different targets (e.g., **trans** contacts from Hi-C instead of linear proximity).
-
-## Artifacts saved
-
-- `out_v2/comparison_report.txt` summarizing true vs shuffles
-- Final directional bar/excess plots and stats (`figs_pilot/`, `figs_full/`)
-- Full-run metrics JSON + per-gene coefficients (`out_v2/`)
-- Pilot summaries and case panels
 
 ## Code structure
 

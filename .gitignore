@@ -26,18 +26,17 @@ chunks/
 
 # Large output CSV files (keep structure, exclude data)
 out/
-out_*/
 out_pilot*/
 out_full*/
+
+# Exclude large CSVs from out_v2/ but allow key summary files
 out_v2/*/dependency_corrected.csv
 out_v2/*/model_coefficients.csv
 out_v2/*/gene_level_correlations.csv
 
-# Keep these key outputs:
-# - out_v2/comparison_report.txt
-# - out_v2/*/metrics.json
-# - figs_pilot/ (all files)
-# - figs_full/ (all files)
+# Explicitly allow key outputs in out_v2/
+!out_v2/comparison_report.txt
+!out_v2/*/metrics.json
 
 # Logs
 *.log

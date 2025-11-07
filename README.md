@@ -1,4 +1,4 @@
-# SV/CN Proximity Correction – Project Postmortem
+# SV/CN Proximity Correction
 
 ## Decision
 

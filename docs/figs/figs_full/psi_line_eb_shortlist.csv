@@ -1,0 +1,1 @@
+cell_line,k_dir_true,n_genes_true,k_dir_rot,n_genes_rot,rate_true_raw,rate_rot_raw,rate_true_eb,rate_rot_eb,post_diff_mean,post_diff_lo,post_diff_hi,post_prob_gt0,split_half_rho,n_reps

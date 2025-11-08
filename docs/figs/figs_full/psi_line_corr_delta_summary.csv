@@ -1,0 +1,7 @@
+metric,value
+median_delta_TRUE,0.0
+median_delta_ROTATE,0.0
+paired_median_diff,0.0
+paired_ci_lo,0.0
+paired_ci_hi,0.0
+n_pairs,57.0

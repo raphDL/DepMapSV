@@ -1,0 +1,9 @@
+slice,true_frac,rot_frac,excess,true_ci_lo,true_ci_hi,rot_ci_lo,rot_ci_hi,excess_ci_lo,excess_ci_hi,n_genes_true,n_genes_rot
+prevalence_matched_global,0.0,0.0,0.0,,,,,0.0,0.0,,
+AEI_edge,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,12.0,12.0
+AEI_interior,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,150.0,150.0
+PBI_promoter,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,13.0,13.0
+PBI_nonpromoter,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,150.0,150.0
+CN_loss,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,150.0,150.0
+CN_neutral,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,22.0,22.0
+CN_gain,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,10.0,10.0

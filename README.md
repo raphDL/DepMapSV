@@ -1,108 +1,122 @@
-# SV/CN Proximity Correction – Project Postmortem
+# DepMapSV: Structural Variant Proximity Analysis Pipeline
 
-## Decision
+Pipeline for analyzing structural variant (SV) proximity effects on gene dependency using DepMap CRISPR data and WGS SV breakpoints.
 
-**Stop**. Multiple falsification tests show no positive, positionally-specific signal attributable to true SV proximity; shuffled controls outperform the true data on the directional metric. Correction yields no measurable gain on essential/non-essential separation.
+## Quick Start
 
-## What we attempted
-
-- Per-gene robust regression (CN + proximity windows) on DepMap 25Q3.
-- Directional prox-active metric, pilot → full-dataset.
-- Two negative controls: within-chrom and cross-chrom shuffles.
-- Full-dataset run with bootstrap CIs; coefficient prevalence, corr-drop distributions.
-- Essential vs non-essential AUROC/AUPRC (gene-level medians).
-
-## Key results
-
-- **Directional prox-active (true)** < **shuffled** (within & across chrom): negative excess.
-- **Essential/non-essential**: AUROC ≈ 1.0 pre-correction; **ΔAUROC ≈ 0** after correction; **ΔΔAUROC CI overlaps 0**.
-- Full-dataset directional fraction (true) ~0.31; shuffled ~0.53–0.57 (numbers from run logs).
-- Pilot and fixed-gene audits replicated the pattern; widening windows boosts all conditions, not just true.
-
-## Interpretation
-
-- Shuffling breaks structure yet increases the directional metric → our metric/model captures variance that is **easier** (more "artifact-like") in shuffled data than in real SV geography.
-- With DepMap-derived essential sets, baseline already perfectly separates labels (partly circular), so there's **no headroom** for improvement.
-
-## What's salvageable
-
-- Clean, documented pipeline pieces:
-  - Data validation + manifesting
-  - Feature builders (CN, SV proximity)
-  - Shuffling frameworks (within & cross-chrom)
-  - Pilot mode + design matrices
-  - Figure and audit scripts (directional flags, CIs)
-- These are reusable for other assays/questions (e.g., enhancer proximity, CNA-aware QC).
-
-## If revisited later (out of scope now)
-
-- Truly orthogonal validation (e.g., external screens or pathway/complex recovery not derived from DepMap).
-- Alternative causal designs (local randomization around "natural experiments" like focal events).
-- Different targets (e.g., **trans** contacts from Hi-C instead of linear proximity).
-
-## Artifacts saved
-
-- `out_v2/comparison_report.txt` summarizing true vs shuffles
-- Final directional bar/excess plots and stats (`figs_pilot/`, `figs_full/`)
-- Full-run metrics JSON + per-gene coefficients (`out_v2/`)
-- Pilot summaries and case panels
-
-## Code structure
-
-### Main pipelines
-- `sv_bias_pipeline.py` - Final v2.1 pipeline with bootstrap CIs and negative controls
-- `svbias_reanalysis.py` - Original reanalysis pipeline with pilot mode
-
-### Data preparation
-- `prep_depmap_25Q3.py` - Converts DepMap CNV segments and expression to standardized formats
-- `gtf_to_gene_bed.py` - Converts GTF annotations to BED format
-
-### Analysis and visualization
-- `make_pilot_figs.py` - Generate pilot figures
-- `make_final_directional_fig.py` - Generate directional metric figures
-- `make_case_studies.py` - Generate case study panels
-- `audit_directional.py` - Audit directional flags
-- `summarize_full_genome.py` - Summarize full genome results
-- `score_hits.py` - Score and analyze hits
-
-### Utilities
-- `pilot_bootstrap_ci.py` - Bootstrap confidence intervals for pilot metrics
-- `hits_summary.py` - Summarize hit analysis
-- `add_lineage_to_design.py` - Add lineage information to design matrices
-
-## Installation
+### 1. Install dependencies
 
 ```bash
 conda env create -f environment.yml
 conda activate svbias
 ```
 
-## Usage example (for reference)
+### 2. Prepare test data (small example)
 
 ```bash
-# Prepare data
-python prep_depmap_25Q3.py \
-  --cnv_segments_wgs OmicsCNSegmentsWGS.csv \
-  --expression_tpm OmicsExpressionTPMLogp1HumanProteinCodingGenesStranded.csv \
-  --outdir prep_out \
-  --cn_assume_diploid
+# Generate synthetic test data
+python test_synthetic.py
 
-python gtf_to_gene_bed.py gencode.v49.basic.annotation.gtf prep_out/gencode.v49.gene.bed
-
-# Run pipeline (final v2.1)
-python sv_bias_pipeline.py \
-  --dependency CRISPRGeneEffect_long.csv \
-  --cnv prep_out/cnv_segments.bed \
-  --sv prep_out/sv_from_cnv.bedpe \
-  --genes prep_out/genes.depmap.unique.bed \
-  --model huber --bp-windows 250000 2000000 \
-  --bootstrap-iterations 2000 \
-  --activity-threshold 0.01 --activity-cell-fraction 0.10 \
-  --output-dir out_v2
+# Run ingestion on test data
+python sv_ingest_wgs.py \
+  --sv-dir data/test \
+  --genes data/test/genes.bed \
+  --cnv data/test/cnv.csv \
+  --out out_test/design_matrix.parquet
 ```
 
-## Notes
+### 3. Run models
 
-- Large data files (CSV inputs, outputs) are excluded via `.gitignore`
-- Key results are in `out_v2/` (final run) and `figs_pilot/`, `figs_full/` (visualizations)
-- See individual script `--help` for detailed options
+```bash
+python run_models.py \
+  --design out_test/design_matrix.parquet \
+  --dep data/test/dependency.csv \
+  --kernel prox_exp_100k \
+  --min-cells 10 \
+  --model huber \
+  --out out_test/models
+```
+
+## Full Pipeline
+
+For production runs with real data, see:
+- **`docs/QUICK_START_WGS.md`** - Complete workflow with WGS SV data
+- **`docs/V3_OVERNIGHT_RUN.md`** - One-command overnight run
+- **`docs/WGS_SV_INGEST.md`** - Detailed ingestion guide
+
+## Data Requirements
+
+Large/third-party datasets (DepMap, CCLE, PCAWG) should be placed in `data/external/` (gitignored). See `data/external/README.md` for details.
+
+**Required inputs:**
+- WGS SV BEDPE files (one per sample)
+- Gene annotations (BED format)
+- CNV segments (BED format)
+- CRISPR dependency data (DepMap format)
+
+**Optional:**
+- `sample_info.csv` for ACH↔CCLE name mapping
+- RNAi data for orthogonal validation
+
+## Key Features
+
+- **Robust data ingestion**: Flexible sample name mapping, CNV autodetection, chromosome normalization
+- **Vectorized distance computation**: Fast, scalable breakpoint-to-gene distance calculations
+- **Multiple proximity kernels**: Exponential RBFs, inverse distance, boolean windows
+- **Negative controls**: ROTATE and WITHIN shuffles for statistical validation
+- **Comprehensive diagnostics**: QC tables, overlap checks, correlation monitoring
+
+## Project Structure
+
+```
+DepMapSV/
+├── README.md              # This file
+├── LICENSE                # MIT License
+├── CITATION.cff           # Citation metadata
+├── environment.yml        # Conda environment
+├── Makefile               # Build automation
+├── sv_ingest_wgs.py       # Main ingestion script
+├── run_models.py          # Model fitting
+├── scripts/               # Helper scripts
+├── configs/               # Configuration files
+├── tests/                 # Unit tests
+├── data/
+│   ├── test/              # Small test data (tracked)
+│   └── external/          # Large/licensed data (gitignored)
+└── docs/                  # Documentation
+    ├── figs/              # Figures
+    └── *.md               # Project docs
+```
+
+## Documentation
+
+All documentation is in `docs/`:
+- **QUICK_START_WGS.md** - Full workflow guide
+- **WGS_SV_INGEST.md** - Ingestion details
+- **TESTING.md** - Testing guide
+- **PROJECT_STATUS.md** - Current status and findings
+
+## Common Issues
+
+### No overlap between SV and CNV
+
+- Ensure sample names match (use `--sample-info` for ACH↔CCLE mapping)
+- Check `logs/overlap_debug_samples.csv` for examples
+- See `docs/WGS_SV_INGEST.md` for troubleshooting
+
+### Parquet engine missing
+
+- Install `pyarrow`: `mamba install -c conda-forge pyarrow`
+- Pipeline automatically falls back to CSV if Parquet unavailable
+
+## Citation
+
+If you use this software, please cite it. See `CITATION.cff` for details.
+
+## License
+
+MIT License - see `LICENSE` for details.
+
+## Contributing
+
+This is a research pipeline. For questions or issues, please open a GitHub issue.

@@ -1,0 +1,40 @@
+{
+  "coef_effect": {
+    "rho_true": -0.18497147781836093,
+    "p_true": 0.026991208587020147,
+    "n_true": 143,
+    "rho_rotate": -0.008778265687199903,
+    "p_rotate": 0.9171269040499228,
+    "n_rotate": 143
+  },
+  "stability": {
+    "120": {
+      "median_rho_true": -0.18761632913853932,
+      "median_rho_rotate": -0.014339663155952339,
+      "replicates": 200
+    },
+    "100": {
+      "median_rho_true": -0.17978613700934198,
+      "median_rho_rotate": -0.00333033303330333,
+      "replicates": 200
+    },
+    "75": {
+      "median_rho_true": -0.20201423964376344,
+      "median_rho_rotate": -0.0007610279254856065,
+      "replicates": 200
+    },
+    "50": {
+      "median_rho_true": -0.1759423769507803,
+      "median_rho_rotate": -0.011404843151244362,
+      "replicates": 200
+    }
+  },
+  "prevalence_matched_tertiles": {
+    "true": 0.0,
+    "rotate": 0.018115942028985508,
+    "excess": -0.018115942028985508,
+    "ci_low": -0.036231884057971016,
+    "ci_high": 0.0,
+    "bins_used": 2
+  }
+}

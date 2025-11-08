@@ -1,0 +1,10 @@
+{
+  "n_genes": 2,
+  "n_cells": 2,
+  "n_pairs": 4,
+  "kernel_used": "prox_exp_100k",
+  "min_cells": 1,
+  "n_genes_fitted": 2,
+  "mean_r2": 0.9999999999999576,
+  "model_type": "huber"
+}

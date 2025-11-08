@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "DepMapSV: Structural Variant Proximity Analysis Pipeline"
+version: 3.0.0
+date-released: 2024-12-21
+authors:
+  - family-names: "DepMapSV"
+    given-names: "Contributors"
+repository-code: "https://github.com/YOUR_USERNAME/DepMapSV"
+license: MIT
+abstract: "Pipeline for analyzing structural variant proximity effects on gene dependency using DepMap CRISPR data and WGS SV breakpoints."
+

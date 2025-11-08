@@ -1,0 +1,4 @@
+metric,value_a,value_b,excess_or_none,ci_lo,ci_hi,n
+prevalence_matched_directional,0.0,0.046157,-0.046157,-0.092313,0.0,4
+coef_effect_spearman_TRUE,0.170825,0.04359482928360219,,,,140
+coef_effect_spearman_ROTATE,-0.070351,0.40882686795956225,,,,140

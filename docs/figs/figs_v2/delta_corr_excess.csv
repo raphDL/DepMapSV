@@ -1,0 +1,3 @@
+test,metric,versus,n_genes,median_excess,ci_low,ci_high
+delta_corr_excess,delta_abs_corr,shuffle_within_chrom,18424,-0.0061254173332531,-0.006450368955796883,-0.005825663417192549
+delta_corr_excess,delta_abs_corr,shuffle_across_chrom,18424,-0.008157614589839301,-0.008592525055310201,-0.007845324415006082

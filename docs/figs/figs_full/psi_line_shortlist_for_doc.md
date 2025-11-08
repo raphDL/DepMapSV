@@ -1,0 +1,24 @@
+# PSI Line Shortlist (EB-Shrunk)
+
+Top cell lines showing proximity sensitivity index (PSI) where TRUE > ROTATE.
+
+**Columns:**
+- `cell_line`: DepMap cell line identifier
+- `post_prob_gt0`: Posterior probability that TRUE PSI > ROTATE PSI
+- `post_diff_mean`: Mean posterior difference (TRUE - ROTATE)
+- `n_genes_true`: Number of genes analyzed
+- `breakpoints`: Number of structural variant breakpoints
+- `FGA`: Fraction of genome altered
+
+| cell_line   |   post_prob_gt0 |   post_diff_mean |   n_genes_true |   breakpoints |    FGA |
+|:------------|----------------:|-----------------:|---------------:|--------------:|-------:|
+| ACH-000839  |           0.864 |           0.0053 |            150 |          2044 | 0.9603 |
+| ACH-000620  |           0.845 |           0.0049 |            150 |          1362 | 0.9977 |
+| ACH-000792  |           0.708 |           0.0018 |            150 |          2296 | 0.9662 |
+| ACH-000521  |           0.707 |           0.0018 |            150 |          1070 | 0.9476 |
+| ACH-000810  |           0.7   |           0.0018 |            150 |          1832 | 0.9993 |
+| ACH-000800  |           0.693 |           0.0017 |            150 |          1600 | 0.9788 |
+| ACH-002080  |           0.692 |           0.0017 |            150 |           708 | 0.9997 |
+| ACH-000231  |           0.691 |           0.0018 |            150 |           628 | 0.9989 |
+| ACH-003191  |           0.691 |           0.0018 |            150 |          1820 | 0.9684 |
+| ACH-001745  |           0.613 |           0.0017 |            150 |          1628 | 0.9885 |

@@ -1,0 +1,5 @@
+gene,cell_line,dependency
+GENE_A,ACH-000001,0.5
+GENE_A,ACH-000002,-0.3
+GENE_B,ACH-000001,0.2
+GENE_B,ACH-000002,-0.1

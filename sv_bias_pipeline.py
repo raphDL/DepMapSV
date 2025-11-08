@@ -76,6 +76,15 @@ class Config:
     # Output
     output_dir: Path = Path("output")
     seed: int = 42
+    
+    # New features (PART B)
+    genes_subset_file: Optional[str] = None
+    write_features_dir: Optional[str] = None
+    read_features_dir: Optional[str] = None
+    orthogonalize_proximity: bool = False
+    compute_partial_corr: bool = False
+    match_proximity_prevalence: bool = False
+    prevalence_tolerance: float = 0.02  # For prevalence matching
 
     def __post_init__(self):
         self.output_dir = Path(self.output_dir)
@@ -432,8 +441,30 @@ class BiasModel:
             if len(gdf) < self.config.min_cells_per_gene:
                 continue
 
-            feature_names = ["cn", "bp_near", "bp_far"]
-            X = gdf[feature_names].to_numpy()
+            # PART B: Optional orthogonalization of proximity vs CN
+            if self.config.orthogonalize_proximity:
+                # Form predictors [cn, bp_near, bp_far]
+                cn_vals = gdf["cn"].fillna(self.config.default_ploidy).values
+                bp_near_vals = gdf["bp_near"].values
+                bp_far_vals = gdf["bp_far"].values
+                
+                # Orthogonalize: bp_near_resid = bp_near - Proj(bp_near | cn)
+                from sklearn.linear_model import LinearRegression
+                lr_near = LinearRegression()
+                lr_near.fit(cn_vals.reshape(-1, 1), bp_near_vals)
+                bp_near_resid = bp_near_vals - lr_near.predict(cn_vals.reshape(-1, 1))
+                
+                lr_far = LinearRegression()
+                lr_far.fit(cn_vals.reshape(-1, 1), bp_far_vals)
+                bp_far_resid = bp_far_vals - lr_far.predict(cn_vals.reshape(-1, 1))
+                
+                # Use residualized proximity features
+                X = np.column_stack([cn_vals, bp_near_resid, bp_far_resid])
+                feature_names = ["cn", "bp_near_resid", "bp_far_resid"]
+            else:
+                feature_names = ["cn", "bp_near", "bp_far"]
+                X = gdf[feature_names].to_numpy()
+            
             y = gdf["dependency"].to_numpy()
 
             if self.config.check_vif and not vif_done:
@@ -459,16 +490,27 @@ class BiasModel:
                 out["structural_bias"] = y_pred
                 predictions.append(out)
 
-                coefficients.append({
+                # PART B: Handle coefficient names based on orthogonalization
+                coef_dict = {
                     "gene": gene,
                     "intercept": float(model.intercept_) if hasattr(model, "intercept_") else 0.0,
                     "coef_cn": float(model.coef_[0]),
-                    "coef_bp_near": float(model.coef_[1]),
-                    "coef_bp_far": float(model.coef_[2]),
                     "r2": float(r2),
                     "n_obs": int(len(gdf)),
                     "rmse": float(np.sqrt(np.mean(residuals ** 2)))
-                })
+                }
+                
+                if self.config.orthogonalize_proximity:
+                    coef_dict["coef_bp_near_resid"] = float(model.coef_[1])
+                    coef_dict["coef_bp_far_resid"] = float(model.coef_[2])
+                    # Also keep original names for backward compatibility (set to NaN or 0)
+                    coef_dict["coef_bp_near"] = 0.0
+                    coef_dict["coef_bp_far"] = 0.0
+                else:
+                    coef_dict["coef_bp_near"] = float(model.coef_[1])
+                    coef_dict["coef_bp_far"] = float(model.coef_[2])
+                
+                coefficients.append(coef_dict)
 
             except Exception as e:
                 logger.debug(f"Failed to fit {gene}: {e}")
@@ -702,6 +744,90 @@ class ValidationMetrics:
             "auprc_delta": float(auprc_corr - auprc_orig)
         }
 
+    def compute_partial_corr_delta(self, data: pd.DataFrame) -> dict:
+        """
+        Compute Δ|partial corr(dep, CN | proximity)| using OLS residualization.
+        Replicates PART A logic for pipeline integration.
+        """
+        logger.info("Computing partial correlation delta...")
+        w1, w2 = self.config.proximity_windows
+        data = data.copy()
+        data["bp_dist"] = data["bp_dist"].fillna(self.config.max_bp_distance)
+        data["bp_near"] = (data["bp_dist"] <= w1).astype(float)
+        data["bp_far"] = ((data["bp_dist"] > w1) & (data["bp_dist"] <= w2)).astype(float)
+        
+        results = []
+        from sklearn.linear_model import LinearRegression
+        
+        for gene, gdf in data.groupby("gene"):
+            valid = gdf[["dependency", "dependency_corrected", "cn", "bp_near", "bp_far"]].dropna()
+            if len(valid) < self.config.min_cells_per_gene:
+                continue
+            
+            try:
+                X_prox = valid[["bp_near", "bp_far"]].values
+                y_dep = valid["dependency"].values
+                y_dep_corr = valid["dependency_corrected"].values
+                y_cn = valid["cn"].values
+                
+                # Residualize
+                lr_dep = LinearRegression()
+                lr_dep.fit(X_prox, y_dep)
+                dep_resid = y_dep - lr_dep.predict(X_prox)
+                
+                lr_dep_corr = LinearRegression()
+                lr_dep_corr.fit(X_prox, y_dep_corr)
+                dep_corr_resid = y_dep_corr - lr_dep_corr.predict(X_prox)
+                
+                lr_cn = LinearRegression()
+                lr_cn.fit(X_prox, y_cn)
+                cn_resid = y_cn - lr_cn.predict(X_prox)
+                
+                # Partial correlations
+                r0 = np.corrcoef(dep_resid, cn_resid)[0, 1]
+                r1 = np.corrcoef(dep_corr_resid, cn_resid)[0, 1]
+                
+                if np.isnan(r0) or np.isnan(r1):
+                    continue
+                
+                delta = abs(r0) - abs(r1)
+                results.append({
+                    "gene": gene,
+                    "partial_corr_delta_abs": delta,
+                    "r0_abs": abs(r0),
+                    "r1_abs": abs(r1),
+                    "n_obs": len(valid)
+                })
+            except Exception:
+                continue
+        
+        if not results:
+            return {"error": "No valid partial correlations computed"}
+        
+        results_df = pd.DataFrame(results)
+        vals = results_df["partial_corr_delta_abs"].values
+        
+        # Bootstrap median (2,000 reps)
+        n = len(vals)
+        boot_medians = []
+        for _ in range(2000):
+            idx = self.rng.integers(0, n, size=n)
+            boot_medians.append(np.median(vals[idx]))
+        
+        boot_medians = np.array(boot_medians)
+        
+        metrics = {
+            "n_genes": int(len(results_df)),
+            "median_partial_delta_abs_corr": float(np.median(vals)),
+            "mean_partial_delta_abs_corr": float(np.mean(vals)),
+            "frac_positive": float((vals > 0).mean()),
+            "partial_ci_lower": float(np.percentile(boot_medians, 2.5)),
+            "partial_ci_upper": float(np.percentile(boot_medians, 97.5)),
+            "gene_level": results_df
+        }
+        
+        return metrics
+
     def compute_excess_signal(self,
                               true_metrics: dict,
                               shuffled_metrics: dict,
@@ -838,6 +964,28 @@ class Pipeline:
         sv = self.validator.validate_sv(sv)
         genes = self.validator.validate_genes(genes)
 
+        # PART B: Early gene subsetting
+        if self.config.genes_subset_file:
+            subset_path = Path(self.config.genes_subset_file)
+            if not subset_path.exists():
+                raise FileNotFoundError(f"Gene subset file not found: {subset_path}")
+            subset_genes = set()
+            with open(subset_path, 'r') as f:
+                for line in f:
+                    gene = line.strip()
+                    if gene:
+                        subset_genes.add(gene)
+            logger.info(f"Subsetting to {len(subset_genes):,} genes from {subset_path}")
+            
+            # Filter dependency and genes tables
+            dep_before = len(dep)
+            dep = dep[dep["gene"].isin(subset_genes)].copy()
+            logger.info(f"Filtered dependency: {len(dep):,} rows (from {dep_before:,})")
+            
+            genes_before = len(genes)
+            genes = genes[genes["gene"].isin(subset_genes)].copy()
+            logger.info(f"Filtered genes: {len(genes):,} genes (from {genes_before:,})")
+
         dep_genes = set(dep["gene"])
         genes_bed = set(genes["gene"])
         gene_overlap = len(dep_genes & genes_bed)
@@ -858,13 +1006,40 @@ class Pipeline:
         return {"dependency": dep, "cnv": cnv, "sv": sv, "genes": genes}
 
     def compute_features(self, data: dict) -> pd.DataFrame:
-        """Compute all genomic features."""
+        """Compute all genomic features with optional caching."""
         logger.info("=" * 80); logger.info("COMPUTING FEATURES"); logger.info("=" * 80)
-        gene_cn = self.feature_computer.compute_gene_cn(data["cnv"], data["genes"])
-        bp_dist = self.feature_computer.compute_bp_distances(data["sv"], data["genes"])
+        
+        # PART B: Feature caching
+        if self.config.read_features_dir:
+            cache_dir = Path(self.config.read_features_dir)
+            cn_cache = cache_dir / "features_cn.parquet"
+            bp_cache = cache_dir / "features_bp.parquet"
+            
+            if cn_cache.exists() and bp_cache.exists():
+                logger.info(f"Loading features from cache: {cache_dir}")
+                gene_cn = pd.read_parquet(cn_cache)
+                bp_dist = pd.read_parquet(bp_cache)
+                logger.info(f"Loaded CN features: {len(gene_cn):,} rows")
+                logger.info(f"Loaded BP features: {len(bp_dist):,} rows")
+            else:
+                logger.warning(f"Cache files not found in {cache_dir}, computing features...")
+                gene_cn = self.feature_computer.compute_gene_cn(data["cnv"], data["genes"])
+                bp_dist = self.feature_computer.compute_bp_distances(data["sv"], data["genes"])
+        else:
+            gene_cn = self.feature_computer.compute_gene_cn(data["cnv"], data["genes"])
+            bp_dist = self.feature_computer.compute_bp_distances(data["sv"], data["genes"])
 
         features = gene_cn.merge(bp_dist, on=["gene", "cell_line"], how="outer")
         merged = data["dependency"].merge(features, on=["gene", "cell_line"], how="left")
+
+        # PART B: Write feature cache if requested
+        if self.config.write_features_dir:
+            cache_dir = Path(self.config.write_features_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Saving features to cache: {cache_dir}")
+            gene_cn.to_parquet(cache_dir / "features_cn.parquet", index=False)
+            bp_dist.to_parquet(cache_dir / "features_bp.parquet", index=False)
+            logger.info("Feature cache saved")
 
         logger.info(f"Feature matrix: {len(merged):,} rows")
         logger.info(f"CN coverage: {merged['cn'].notna().mean():.1%}")
@@ -903,6 +1078,11 @@ class Pipeline:
         )
         results["proximity_effects"] = proximity_metrics
 
+        # PART B: Partial correlation metric
+        if self.config.compute_partial_corr:
+            partial_metrics = self.metrics.compute_partial_corr_delta(corrected)
+            results["partial_correlation"] = partial_metrics
+
         if essential_genes and nonessential_genes:
             sep_metrics = self.metrics.evaluate_essential_separation(
                 corrected, essential_genes, nonessential_genes
@@ -919,16 +1099,61 @@ class Pipeline:
             if "cn_correlation" in results_json and "gene_level" in results_json["cn_correlation"]:
                 gene_level_df = results_json["cn_correlation"].pop("gene_level")
                 gene_level_df.to_csv(out_dir / "gene_level_correlations.csv", index=False)
+            # PART B: Save partial correlation per-gene results
+            if "partial_correlation" in results_json and "gene_level" in results_json["partial_correlation"]:
+                partial_df = results_json["partial_correlation"].pop("gene_level")
+                partial_df.to_csv(out_dir / "partial_corr_per_gene.csv", index=False)
             json.dump(results_json, f, indent=2, default=str)
 
         logger.info(f"Saved outputs to {out_dir}")
         return results
 
+    def _compute_proximity_prevalence(self, data: pd.DataFrame) -> pd.Series:
+        """Compute per-gene proximity prevalence (mean of bp_near or bp_far)."""
+        w1, w2 = self.config.proximity_windows
+        data = data.copy()
+        data["bp_dist"] = data["bp_dist"].fillna(self.config.max_bp_distance)
+        data["bp_near"] = (data["bp_dist"] <= w1).astype(float)
+        data["bp_far"] = ((data["bp_dist"] > w1) & (data["bp_dist"] <= w2)).astype(float)
+        data["prox_active"] = (data["bp_near"] | data["bp_far"]).astype(float)
+        
+        # Per-gene mean prevalence
+        prevalence = data.groupby("gene")["prox_active"].mean()
+        return prevalence
+
+    def _filter_by_prevalence_match(self, true_data: pd.DataFrame, 
+                                    shuffled_data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, int]:
+        """
+        Filter genes by proximity prevalence match (tolerance ±0.02).
+        Returns filtered dataframes and count of genes kept.
+        """
+        true_prev = self._compute_proximity_prevalence(true_data)
+        shuf_prev = self._compute_proximity_prevalence(shuffled_data)
+        
+        # Find genes with matching prevalence
+        common_genes = set(true_prev.index) & set(shuf_prev.index)
+        matched_genes = []
+        
+        for gene in common_genes:
+            diff = abs(true_prev[gene] - shuf_prev[gene])
+            if diff <= self.config.prevalence_tolerance:
+                matched_genes.append(gene)
+        
+        logger.info(f"Prevalence matching: {len(matched_genes):,} / {len(common_genes):,} genes "
+                   f"within tolerance ±{self.config.prevalence_tolerance}")
+        
+        # Filter dataframes
+        true_filtered = true_data[true_data["gene"].isin(matched_genes)].copy()
+        shuf_filtered = shuffled_data[shuffled_data["gene"].isin(matched_genes)].copy()
+        
+        return true_filtered, shuf_filtered, len(matched_genes)
+
     def run_with_controls(self,
                           data: dict,
                           essential_path: Optional[str] = None,
                           nonessential_path: Optional[str] = None,
-                          run_shuffles: bool = True) -> dict:
+                          run_shuffles: bool = True,
+                          shuffle_mode: Optional[str] = "both") -> dict:
         """Run full analysis with (optional) negative controls."""
         essential_genes = None
         nonessential_genes = None
@@ -952,29 +1177,51 @@ class Pipeline:
         )
 
         if run_shuffles:
-            logger.info("=" * 80); logger.info("CONTROL 1: Within-chromosome shuffle"); logger.info("=" * 80)
-            sv_shuf_within = self.shuffler.shuffle_within_chromosome(data["sv"])
-            feat_within = self.compute_features({**data, "sv": sv_shuf_within})
-            results["shuffle_within_chrom"] = self.run_analysis(
-                feat_within, label="shuffle_within_chrom",
-                essential_genes=essential_genes, nonessential_genes=nonessential_genes
-            )
+            if shuffle_mode in ("within", "both"):
+                logger.info("=" * 80); logger.info("CONTROL 1: Within-chromosome shuffle"); logger.info("=" * 80)
+                sv_shuf_within = self.shuffler.shuffle_within_chromosome(data["sv"])
+                feat_within = self.compute_features({**data, "sv": sv_shuf_within})
+                
+                # PART B: Prevalence matching for shuffled data
+                if self.config.match_proximity_prevalence:
+                    feat_within_filtered, _, n_kept = self._filter_by_prevalence_match(
+                        feature_data, feat_within
+                    )
+                    logger.info(f"Using {n_kept:,} genes after prevalence matching for within-chrom shuffle")
+                    feat_within = feat_within[feat_within["gene"].isin(feat_within_filtered["gene"].unique())].copy()
+                
+                results["shuffle_within_chrom"] = self.run_analysis(
+                    feat_within, label="shuffle_within_chrom",
+                    essential_genes=essential_genes, nonessential_genes=nonessential_genes
+                )
 
-            logger.info("=" * 80); logger.info("CONTROL 2: Cross-chromosome shuffle"); logger.info("=" * 80)
-            sv_shuf_across = self.shuffler.shuffle_across_chromosomes(data["sv"])
-            feat_across = self.compute_features({**data, "sv": sv_shuf_across})
-            results["shuffle_across_chrom"] = self.run_analysis(
-                feat_across, label="shuffle_across_chrom",
-                essential_genes=essential_genes, nonessential_genes=nonessential_genes
-            )
+            if shuffle_mode in ("across", "both"):
+                logger.info("=" * 80); logger.info("CONTROL 2: Cross-chromosome shuffle"); logger.info("=" * 80)
+                sv_shuf_across = self.shuffler.shuffle_across_chromosomes(data["sv"])
+                feat_across = self.compute_features({**data, "sv": sv_shuf_across})
+                
+                # PART B: Prevalence matching for shuffled data
+                if self.config.match_proximity_prevalence:
+                    feat_across_filtered, _, n_kept = self._filter_by_prevalence_match(
+                        feature_data, feat_across
+                    )
+                    logger.info(f"Using {n_kept:,} genes after prevalence matching for across-chrom shuffle")
+                    feat_across = feat_across[feat_across["gene"].isin(feat_across_filtered["gene"].unique())].copy()
+                
+                results["shuffle_across_chrom"] = self.run_analysis(
+                    feat_across, label="shuffle_across_chrom",
+                    essential_genes=essential_genes, nonessential_genes=nonessential_genes
+                )
 
             logger.info("=" * 80); logger.info("COMPUTING EXCESS SIGNALS"); logger.info("=" * 80)
-            results["excess_within"] = self._compute_all_excess(
-                results["true"], results["shuffle_within_chrom"]
-            )
-            results["excess_across"] = self._compute_all_excess(
-                results["true"], results["shuffle_across_chrom"]
-            )
+            if shuffle_mode in ("within", "both") and "shuffle_within_chrom" in results:
+                results["excess_within"] = self._compute_all_excess(
+                    results["true"], results["shuffle_within_chrom"]
+                )
+            if shuffle_mode in ("across", "both") and "shuffle_across_chrom" in results:
+                results["excess_across"] = self._compute_all_excess(
+                    results["true"], results["shuffle_across_chrom"]
+                )
 
         self._generate_comparison_report(results, run_shuffles=run_shuffles)
         return results
@@ -1131,6 +1378,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=42)
 
     p.add_argument("--no-shuffles", action="store_true", help="Skip shuffled negative controls")
+    p.add_argument("--shuffle-within", action="store_true", help="Run only within-chromosome shuffle")
+    p.add_argument("--shuffle-across", action="store_true", help="Run only across-chromosome shuffle")
+    
+    # PART B: New CLI flags
+    p.add_argument("--genes-subset-file", type=str, default=None,
+                   help="File with newline-separated gene symbols to subset")
+    p.add_argument("--write-features", type=str, default=None,
+                   help="Directory to write feature cache (features_cn.parquet, features_bp.parquet)")
+    p.add_argument("--read-features", type=str, default=None,
+                   help="Directory to read feature cache from")
+    p.add_argument("--orthogonalize-proximity", action="store_true",
+                   help="Orthogonalize proximity features against CN before fitting")
+    p.add_argument("--compute-partial-corr", action="store_true",
+                   help="Compute and report partial correlation metric")
+    p.add_argument("--match-proximity-prevalence", action="store_true",
+                   help="Filter genes by proximity prevalence match (tolerance ±0.02)")
+    
     return p
 
 
@@ -1153,7 +1417,13 @@ def main():
         check_vif=args.vif_check,
         vif_threshold=args.vif_threshold,
         output_dir=Path(args.output_dir),
-        seed=args.seed
+        seed=args.seed,
+        genes_subset_file=args.genes_subset_file,
+        write_features_dir=args.write_features,
+        read_features_dir=args.read_features,
+        orthogonalize_proximity=args.orthogonalize_proximity,
+        compute_partial_corr=args.compute_partial_corr,
+        match_proximity_prevalence=args.match_proximity_prevalence
     )
 
     pipe = Pipeline(cfg)
@@ -1164,11 +1434,26 @@ def main():
         genes_path=args.genes
     )
 
+    # Determine shuffle mode
+    if args.no_shuffles:
+        run_shuffles = False
+        shuffle_mode = None
+    elif args.shuffle_within:
+        run_shuffles = True
+        shuffle_mode = "within"
+    elif args.shuffle_across:
+        run_shuffles = True
+        shuffle_mode = "across"
+    else:
+        run_shuffles = True
+        shuffle_mode = "both"
+    
     pipe.run_with_controls(
         data=data,
         essential_path=args.essential,
         nonessential_path=args.nonessential,
-        run_shuffles=not args.no_shuffles
+        run_shuffles=run_shuffles,
+        shuffle_mode=shuffle_mode
     )
 
 

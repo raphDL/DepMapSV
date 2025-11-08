@@ -1,0 +1,39 @@
+# V3 overnight run config
+paths:
+  dep: CRISPRGeneEffect_long.csv
+  genes_bed: prep_out/genes.depmap.unique.bed
+  cnv_bed: prep_out/cnv_segments.bed
+  sv_dir: sv_wgs_bedpe
+  out_dir: out_v3/true
+  pcawg_index: ""  # optional; leave blank to skip
+
+ingest:
+  svtypes: ["TRA", "INV"]
+  join: "inner"          # inner | left | outer
+  drop_no_sv_lines: true # true -> only rows with bp_dist
+  spline: false
+  out_parquet: out_v3/true/design_matrix_wgs.parquet
+
+models:
+  kernels: ["prox_exp_50k", "prox_exp_100k", "prox_exp_250k", "prox_exp_500k", "prox_inv"]
+  min_cells: 50
+  model: "huber"         # huber | enet
+  seed: 1337
+
+shuffle:
+  make_rotate: true
+  make_within: false     # set true if you also want within-chrom shuffle
+  rotate_out: out_v3/rotate/design_matrix_wgs_rotate.parquet
+  within_out: out_v3/within/design_matrix_wgs_within.parquet
+
+evaluation:
+  bootstrap_iters: 1000
+  alpha: 0.05
+
+selection:
+  fdr_q: 0.10
+  coef_percentile: 95
+  min_non_na: 500
+  exclude_top_cn_var_pct: 5
+  prevalence_adjust: true
+
